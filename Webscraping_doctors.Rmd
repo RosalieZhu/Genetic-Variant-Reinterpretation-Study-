@@ -1,0 +1,173 @@
+---
+title: "Webscraping for Task D team project"
+author: "Nanyan 'Rosalie' Zhu"
+date: "March 11, 2019"
+output: html_document
+---
+
+```{r, echo = FALSE}
+set.seed(1) # Please don't remove this code!
+```
+
+# Goal: Webscrape the Names, specialties, and phone numbers of the healthcare professionals.
+
+# Step 1. 
+1) Use the readLines() command on the urls to load the website html.
+2) Create filters to screen for the lines that contain information of interest.
+According to my observation, all necessary information are stored in a single line of html for every page. These lines (one per page) share a distinctive variable name "mapboxlocations".
+```{r step01}
+# Write a function to automate the process
+doctor.info.collect <- function(page.num, url, filter){
+  list.name <- list(rep(NA, page.num))
+  for (page in 1:page.num){
+    list.name[[page]] <- readLines(paste(url, toString(page), sep=''), warn = FALSE)
+    grep(list.name[[page]], pattern = filter)
+    matches.rownum <- grepl(list.name[[page]], pattern = filter)
+    list.name[[page]] <- list.name[[page]][matches.rownum]
+  }
+  return (list.name)
+}
+
+# Define the filter that is used to locate the valuable information.
+filter <- "mapboxlocations"
+
+# Organize the Webpage page number and page url information.
+page.nums <- c(19, 213, 519, 3, 29, 21, 3, 18, 25)
+page.urls <- c('https://doctor.webmd.com/results?so=&city=New+York&state=NY&zip=&lat=40.7142&lon=-74.0059&ln=oncology&loc=New+York%2C+NY&pagenumber=','https://doctor.webmd.com/results?tname=Neurology&city=New%20York&state=NY&zip=&lat=40.7142&lon=-74.0059&s=501&so=&sd=29282&pagenumber=','https://doctor.webmd.com/results?so=&city=New+York&state=NY&zip=&lat=40.7142&lon=-74.0059&ln=cardiology&loc=New+York%2C+NY&pagenumber=','https://doctor.webmd.com/results?so=&city=Ann+Arbor&state=MI&zip=&lat=42.2753&lon=-83.7307&ln=oncology&loc=Ann+Arbor%2C+MI&pagenumber=','https://doctor.webmd.com/results?tname=Neurology&city=Ann+Arbor&state=MI&zip=&lat=42.2708&lon=-83.7263&s=505&so=&sd=29282&pagenumber=','https://doctor.webmd.com/results?tname=Cardiology&city=Ann+Arbor&state=MI&zip=&lat=42.2708&lon=-83.7263&s=505&so=&sd=29236&pagenumber=','https://doctor.webmd.com/results?so=&city=Nashville&state=TN&zip=&lat=36.1658&lon=-86.7844&ln=oncology&loc=Nashville%2C+TN&pagenumber=','https://doctor.webmd.com/results?so=&city=Nashville&state=TN&zip=&lat=36.1658&lon=-86.7844&ln=neurology&loc=Nashville%2C+TN&pagenumber=','https://doctor.webmd.com/results?tname=Cardiology&city=Nashville&state=TN&zip=&lat=36.1658&lon=-86.7844&s=659&so=&sd=29236&pagenumber=')
+
+# Scrape the information we need from the webpages and store them in lists.
+webMD.oncology.NY <- doctor.info.collect(page.nums[1], page.urls[1], filter)
+webMD.neurology.NY <- doctor.info.collect(page.nums[2], page.urls[2], filter)
+webMD.cardiology.NY <- doctor.info.collect(page.nums[3], page.urls[3], filter)
+webMD.oncology.AA <- doctor.info.collect(page.nums[4], page.urls[4], filter)
+webMD.neurology.AA <- doctor.info.collect(page.nums[5], page.urls[5], filter)
+webMD.cardiology.AA <- doctor.info.collect(page.nums[6], page.urls[6], filter)
+webMD.oncology.NV <- doctor.info.collect(page.nums[7], page.urls[7], filter)
+webMD.neurology.NV <- doctor.info.collect(page.nums[8], page.urls[8], filter)
+webMD.cardiology.NV <- doctor.info.collect(page.nums[9], page.urls[9], filter)
+```
+
+# Step 2.
+Extract the names, phone numbers, addresses, and cities of the doctors.
+```{r step02}
+# Write a function to automate the process.
+doctor.info.cleaning <- function(list.name, firstname.filter, lastname.filter, phone.filter, address.filter, city.filter){
+  # Generate a dataframe with 1 row. The four a's just are placeholders.
+  dataframe.name <- data.frame(Name = 'a', Phone = 'a', Address = 'a', City = 'a', stringsAsFactors = FALSE)
+  for (page in 1:length(list.name)){
+    doctor.firstname <- regmatches(list.name[[page]], gregexpr(list.name[[page]], pattern = firstname.filter))[[1]]
+    doctor.lastname <- regmatches(list.name[[page]], gregexpr(list.name[[page]], pattern = lastname.filter))[[1]]
+    doctor.phone <- regmatches(list.name[[page]], gregexpr(list.name[[page]], pattern = phone.filter))[[1]]
+    doctor.address <- regmatches(list.name[[page]], gregexpr(list.name[[page]], pattern = address.filter))[[1]]
+    doctor.city <- regmatches(list.name[[page]], gregexpr(list.name[[page]], pattern = city.filter))[[1]]
+    
+    for (item in 1:length(doctor.firstname)){
+      this.firstname <- substring(doctor.firstname[item], 14, nchar(doctor.firstname[item]) - 1)
+      this.lastname <- substring(doctor.lastname[item], 13, nchar(doctor.lastname[item]) - 1)
+      this.doctor.name <- paste(this.firstname, this.lastname)
+      this.doctor.phone <- substring(doctor.phone[item], 10, nchar(doctor.phone[item]) - 1)
+      this.doctor.address <- substring(doctor.address[item], 12, nchar(doctor.address[item]) - 2)
+      this.doctor.city <- substring(doctor.city[item], 9, nchar(doctor.city[item]) - 1)
+      
+      # Populate the dataframe.
+      dataframe.name <- rbind(dataframe.name, c(this.doctor.name, this.doctor.phone, this.doctor.address, this.doctor.city))
+    }
+  }
+  # Discard the first row of the dataframe.
+  dataframe.name <- dataframe.name[2:length(dataframe.name[,1]),]
+  return(dataframe.name)
+}
+
+# Define the filters to extract the first and last names of the doctors.
+firstname.filter <- "\"firstName\":\"([A-Z]|[a-z]|[[:space:]]|-)+\""
+lastname.filter <- "\"lastName\":\"([A-Z]|[a-z]|[[:space:]]|-)+\""
+# Define the filter to extract the phone numbers of the doctors.
+phone.filter <- "\"phone\":\"[0-9]*\""
+# Define the filters to extract the addresses and cities of the doctors.
+address.filter <- "\"address\":\"([A-Z]|[a-z]|[0-9]|[[:space:]]|#|-|&|/|[.])*,\""
+city.filter <- "\"city\":\"([A-Z]|[a-z]|[[:space:]])+\""
+
+# Clean up and store the information for all cases.
+doctor.oncology.NY <- unique(doctor.info.cleaning(webMD.oncology.NY, firstname.filter, lastname.filter, phone.filter, address.filter, city.filter))
+doctor.neurology.NY <- unique(doctor.info.cleaning(webMD.neurology.NY, firstname.filter, lastname.filter, phone.filter, address.filter, city.filter))
+doctor.cardiology.NY <- unique(doctor.info.cleaning(webMD.cardiology.NY, firstname.filter, lastname.filter, phone.filter, address.filter, city.filter))
+doctor.oncology.AA <- unique(doctor.info.cleaning(webMD.oncology.AA, firstname.filter, lastname.filter, phone.filter, address.filter, city.filter))
+doctor.neurology.AA <- unique(doctor.info.cleaning(webMD.neurology.AA, firstname.filter, lastname.filter, phone.filter, address.filter, city.filter))
+doctor.cardiology.AA <- unique(doctor.info.cleaning(webMD.cardiology.AA, firstname.filter, lastname.filter, phone.filter, address.filter, city.filter))
+doctor.oncology.NV <- unique(doctor.info.cleaning(webMD.oncology.NV, firstname.filter, lastname.filter, phone.filter, address.filter, city.filter))
+doctor.neurology.NV <- unique(doctor.info.cleaning(webMD.neurology.NV, firstname.filter, lastname.filter, phone.filter, address.filter, city.filter))
+doctor.cardiology.NV <- unique(doctor.info.cleaning(webMD.cardiology.NV, firstname.filter, lastname.filter, phone.filter, address.filter, city.filter))
+
+# Merge them to one file and add a column called "GroupID"
+doctor.oncology.NY$Category <- c("Oncologist (New York)")
+doctor.neurology.NY$Category <- c("Neurologist (New York)")
+doctor.cardiology.NY$Category <- c("Cardiologist (New York)")
+doctor.oncology.AA$Category <- c("Oncologist (Ann Arbor)")
+doctor.neurology.AA$Category <- c("Neurologist (Ann Arbor)")
+doctor.cardiology.AA$Category <- c("Cardiologist (Ann Arbor)")
+doctor.oncology.NV$Category <- c("Oncologist (Nashville)")
+doctor.neurology.NV$Category <- c("Neurologist (Nashville)")
+doctor.cardiology.NV$Category <- c("Cardiologist (Nashville)")
+
+# Add a column called "GroupID" for each dataframe. Make sure the same GroupID imply the same address in the same category.
+starting_idx <- 0
+doctor.oncology.NY$GroupID <- starting_idx + as.numeric(factor(doctor.oncology.NY$Address))
+starting_idx <- starting_idx + length(levels(factor(doctor.oncology.NY$Address)))
+doctor.neurology.NY$GroupID <- starting_idx + as.numeric(factor(doctor.neurology.NY$Address))
+starting_idx <- starting_idx + length(levels(factor(doctor.neurology.NY$Address)))
+doctor.cardiology.NY$GroupID <- starting_idx + as.numeric(factor(doctor.cardiology.NY$Address))
+starting_idx <- starting_idx + length(levels(factor(doctor.cardiology.NY$Address)))
+
+doctor.oncology.AA$GroupID <- starting_idx + as.numeric(factor(doctor.oncology.AA$Address))
+starting_idx <- starting_idx + length(levels(factor(doctor.oncology.AA$Address)))
+doctor.neurology.AA$GroupID <- starting_idx + as.numeric(factor(doctor.neurology.AA$Address))
+starting_idx <- starting_idx + length(levels(factor(doctor.neurology.AA$Address)))
+doctor.cardiology.AA$GroupID <- starting_idx + as.numeric(factor(doctor.cardiology.AA$Address))
+starting_idx <- starting_idx + length(levels(factor(doctor.cardiology.AA$Address)))
+
+doctor.oncology.NV$GroupID <- starting_idx + as.numeric(factor(doctor.oncology.NV$Address))
+starting_idx <- starting_idx + length(levels(factor(doctor.oncology.NV$Address)))
+doctor.neurology.NV$GroupID <- starting_idx + as.numeric(factor(doctor.neurology.NV$Address))
+starting_idx <- starting_idx + length(levels(factor(doctor.neurology.NV$Address)))
+doctor.cardiology.NV$GroupID <- starting_idx + as.numeric(factor(doctor.cardiology.NV$Address))
+starting_idx <- starting_idx + length(levels(factor(doctor.cardiology.NV$Address)))
+
+doctor.summary <- data.frame(Name = character(), Phone = character(), Address = character(), City = character(), Category = character(), GroupID = integer())
+doctor.summary <- rbind(doctor.summary, doctor.oncology.NY)
+doctor.summary <- rbind(doctor.summary, doctor.neurology.NY)
+doctor.summary <- rbind(doctor.summary, doctor.cardiology.NY)
+doctor.summary <- rbind(doctor.summary, doctor.oncology.AA)
+doctor.summary <- rbind(doctor.summary, doctor.neurology.AA)
+doctor.summary <- rbind(doctor.summary, doctor.cardiology.AA)
+doctor.summary <- rbind(doctor.summary, doctor.oncology.NV)
+doctor.summary <- rbind(doctor.summary, doctor.neurology.NV)
+doctor.summary <- rbind(doctor.summary, doctor.cardiology.NV)
+```
+
+# Step 3.
+Save the resulting 10 dataframes as csv files.
+```{r step03}
+write.csv(doctor.summary, file = "Doctor_Summary.csv")
+write.csv(doctor.oncology.NY, file = "Oncology_NewYork.csv")
+write.csv(doctor.neurology.NY, file = "Neurology_NewYork.csv")
+write.csv(doctor.cardiology.NY, file = "Cardiology_NewYork.csv")
+write.csv(doctor.oncology.AA, file = "Oncology_AnnArbor.csv")
+write.csv(doctor.neurology.AA, file = "Neurology_AnnArbor.csv")
+write.csv(doctor.cardiology.AA, file = "Cardiology_AnnArbor.csv")
+write.csv(doctor.oncology.NV, file = "Oncology_Nashville.csv")
+write.csv(doctor.neurology.NV, file = "Neurology_Nashville.csv")
+write.csv(doctor.cardiology.NV, file = "Cardiology_Nashville.csv")
+```
+
+Also save the 9 lists as RData
+```{r save}
+save(webMD.oncology.NY, file = "C:/Users/ChenRaphaelLiu/Desktop/Columbia Courses/Rosalie/More Data/webMD.oncology.NY.Rdata")
+save(webMD.neurology.NY, file = "C:/Users/ChenRaphaelLiu/Desktop/Columbia Courses/Rosalie/More Data/webMD.neurology.NY.Rdata")
+save(webMD.cardiology.NY, file = "C:/Users/ChenRaphaelLiu/Desktop/Columbia Courses/Rosalie/More Data/webMD.cardiology.NY.Rdata")
+save(webMD.oncology.AA, file = "C:/Users/ChenRaphaelLiu/Desktop/Columbia Courses/Rosalie/More Data/webMD.oncology.AA.Rdata")
+save(webMD.neurology.AA, file = "C:/Users/ChenRaphaelLiu/Desktop/Columbia Courses/Rosalie/More Data/webMD.neurology.AA.Rdata")
+save(webMD.cardiology.AA, file = "C:/Users/ChenRaphaelLiu/Desktop/Columbia Courses/Rosalie/More Data/webMD.cardiology.AA.Rdata")
+save(webMD.oncology.NV, file = "C:/Users/ChenRaphaelLiu/Desktop/Columbia Courses/Rosalie/More Data/webMD.oncology.NV.Rdata")
+save(webMD.neurology.NV, file = "C:/Users/ChenRaphaelLiu/Desktop/Columbia Courses/Rosalie/More Data/webMD.neurology.NV.Rdata")
+save(webMD.cardiology.NV, file = "C:/Users/ChenRaphaelLiu/Desktop/Columbia Courses/Rosalie/More Data/webMD.cardiology.NV.Rdata")
+```
