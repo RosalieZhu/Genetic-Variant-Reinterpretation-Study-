@@ -9,7 +9,7 @@ This is a code repository for the ongoing genetic reinterpretation program calle
 
 [Yuhao "Leo" Jin](https://biology.columbia.edu/people/jin), MA Biotechnology (now PhD at Columbia)
 
-[Henry Chao](https://www.linkedin.com/in/phchao/), Biotechnology
+[Henry Chao](https://www.linkedin.com/in/phchao/), MA Biotechnology
 
 [Julian Pino](https://www.linkedin.com/in/julian-pino-8a8s/), MA Biotechnology 
 
